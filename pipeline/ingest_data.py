@@ -1,3 +1,4 @@
+import click
 import pandas as pd
 from tqdm.auto import tqdm
 from sqlalchemy import create_engine
@@ -28,34 +29,32 @@ parse_dates = [
 ]
 
 
-def run():
-
-    pg_user = "root"
-    pg_pass = "root"
-    pg_host = "localhost"
-    pg_db = "ny_taxi"
-    pg_port = "5432"
-
-    year = 2021
-    month = 1
-
-    target_table = "yellow_taxi_data"
-
-    chunksize = 100000
+@click.command()
+@click.option("--pg-user", default="root", help="PostgreSQL user")
+@click.option("--pg-pass", default="root", help="PostgreSQL password")
+@click.option("--pg-host", default="localhost", help="PostgreSQL host")
+@click.option("--pg-db", default="ny_taxi", help="PostgreSQL database name")
+@click.option("--pg-port", default="5432", help="PostgreSQL port")
+@click.option("--year", default=2021, help="Year of the data to ingest")
+@click.option("--month", default=1, help="Month of the data to ingest")
+@click.option("--target-table", default="yellow_taxi_data", help="Target table name")
+@click.option("--chunksize", default=100000, help="Chunk size for reading CSV")
+def run(pg_user, pg_pass, pg_host, pg_db, pg_port, year, month, target_table, chunksize):
 
     # Read a sample of the data
     prefix = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/'
-    df = pd.read_csv(prefix + 'yellow_tripdata_2021-01.csv.gz')
+    url = f'{prefix}yellow_tripdata_{year}-{month:02d}.csv.gz'
+    df = pd.read_csv(url)
 
     engine = create_engine(f'postgresql+psycopg://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}')
 
-    print(pd.io.sql.get_schema(df, name='yellow_taxi_data', con=engine))
+    print(pd.io.sql.get_schema(df, name=target_table, con=engine))
 
 
 
 
     df_iter = pd.read_csv(
-       prefix + 'yellow_tripdata_2021-01.csv.gz',
+       url,
        dtype=dtype,
        parse_dates=parse_dates,
        iterator=True,
@@ -87,4 +86,19 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run() 
+
+
+
+
+"""
+docker run -it 
+  --network=pg-network 
+  taxi_ingest:v001 
+    --pg-user=root 
+    --pg-pass=root 
+    --pg-host=pgdatabase 
+    --pg-port=5432 
+    --pg-db=ny_taxi 
+    --target-table=yellow_taxi_trips
+"""
